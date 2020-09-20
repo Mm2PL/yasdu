@@ -23,8 +23,6 @@ def _hook(type_, val, tb):
                 + ''.join(traceback.format_exception(type_, val, tb))
         )
     )
-    import IPython
-    IPython.embed()
     if old_hook:
         return old_hook(type_, val, tb)
 
