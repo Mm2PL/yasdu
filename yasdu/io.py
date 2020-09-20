@@ -45,8 +45,11 @@ def get_info(tb=None):
 
     ref_table = {}
     for num, f in enumerate(stack):
-        frame, _ = f
         frame: types.FrameType
+        if isinstance(f, (tuple, list)):
+            frame, _ = f
+        else:
+            frame = f
 
         data.append({
             'locals': _prepare_variables(frame.f_locals, ref_table),

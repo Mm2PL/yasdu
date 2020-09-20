@@ -32,7 +32,7 @@ def _show_frames(d, globals_ref, locals_ref, no_sources=False):
                     fail_cause = 'File not found'
 
             if frame.file in files:
-                if frame.f_line > len(files[frame.file]) - 1:
+                if frame.f_line > len(files[frame.file]):
                     line = '# file too small to find line'
                 else:
                     line = files[frame.file][frame.f_line - 1].rstrip('\r\n').lstrip('  ')
