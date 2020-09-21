@@ -3,7 +3,6 @@ import sys
 import types
 import typing
 
-from yasdu.shell import ask_yes_no
 from .io import load
 from .frame import LoadedFrame
 
@@ -11,10 +10,11 @@ from .frame import LoadedFrame
 class ArgumentsNamespace:
     load_file: typing.Optional[str]
     no_sources: bool
-    yes_please_load_the_dump: bool
+    assume_yes: bool
 
 
 def _show_frames(d, globals_ref, locals_ref, no_sources=False):
+    """Implementation of frames() function in REPL"""
     files = {}
     print('Available frames')
     for num, frame in enumerate(d):
@@ -57,6 +57,7 @@ def _update_sys_prompt(frame):
 
 
 def _update_frame(d, globals_ref, locals_ref, count_frames):
+    """Implementation of up() and down() functions in REPL"""
     if '_lframe' in globals_ref:
         current_frame = globals_ref['_lframe'].frame_number  # _lframe if exists, will always be a LoadedFrame
     elif '_lframe' in locals_ref:
@@ -84,6 +85,7 @@ def _update_frame(d, globals_ref, locals_ref, count_frames):
 
 
 def _show_sources(d, globals_ref, locals_ref, no_sources, count_lines):
+    """Implementation of sources() function in REPL"""
     if no_sources:
         print('Sources are disabled.')
         return
@@ -99,12 +101,47 @@ def _show_sources(d, globals_ref, locals_ref, no_sources, count_lines):
         with open(frame.file) as f:
             for num, line in enumerate(f):
                 if stop_display > num > start_display:
-                    if num == frame.f_line-1:
+                    if num == frame.f_line - 1:
                         print('->', line.rstrip('\r\n'))
                     else:
                         print('  ', line.rstrip('\r\n'))
     except FileNotFoundError:
         print(f'{frame.file}: File not found')
+
+
+def ask_yes_no(prompt, default=True) -> bool:
+    """
+    Asks a yes/no question to the user
+
+    :param prompt: The prompt to show the user. "[y/n]" will be added to the end.
+    :param default: The default answer (activated by leaving the input empty). \
+    Can be True (yes), False (no), None (forces user to pick)
+    """
+    if default is True:
+        prompt = prompt + ' [Y/n]'
+    elif default is False:
+        prompt = prompt + ' [y/N]'
+    elif default is None:
+        prompt = prompt + ' [y/n]'
+    else:
+        raise LookupError('Invalid yes/no prompt default, possible values are True (yes), False (no), '
+                          'None (no default)')
+
+    while 1:
+        try:
+            ans = input(prompt).casefold().rstrip(' .!\\')
+        except (KeyboardInterrupt, EOFError):
+            return False
+
+        if ans == '' and default is not None:
+            return default
+
+        if ans in ['yes', 'y']:
+            return True
+        elif ans in ['no', 'n']:
+            return False
+        else:
+            print('Answer "yes" or "no".')
 
 
 def _main():
@@ -114,12 +151,12 @@ def _main():
                               help='Loads given file and starts a Python interpreter')
     p.add_argument('-S', '--no-sources', dest='no_sources', action='store_true',
                    help='Disables reading the sources from disk and showing them, useful if they have changed.')
-    p.add_argument('-y', dest='yes_please_load_the_dump', action='store_true',
-                   help='Loads the dump without asking you.')
+    p.add_argument('-y', dest='assume_yes', action='store_true',
+                   help='Assume yes to all questions')
     args = p.parse_args(namespace=ArgumentsNamespace())
     if args.load_file:
-        if not args.yes_please_load_the_dump and not ask_yes_no('Loading dump files can allow them to execute code. '
-                                                                'Do you still want to proceed?', default=False):
+        if not args.assume_yes and not ask_yes_no('Loading dump files can allow them to execute code. '
+                                                  'Do you still want to proceed?', default=False):
             print('Exitting.')
             exit(0)
         d = load(args.load_file)

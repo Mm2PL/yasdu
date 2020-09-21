@@ -62,32 +62,4 @@ class Namespace:
     __dict__ = {}
 
 
-def ask_yes_no(prompt, default=True) -> bool:
-    if default is True:
-        prompt = prompt + ' [Y/n]'
-    elif default is False:
-        prompt = prompt + ' [y/N]'
-    elif default is None:
-        prompt = prompt + ' [y/n]'
-    else:
-        raise LookupError('Invalid yes/no prompt default, possible values are True (yes), False (no), '
-                          'None (no default)')
-
-    while 1:
-        try:
-            ans = input(prompt).casefold().rstrip(' .!\\')
-        except (KeyboardInterrupt, EOFError):
-            return False
-
-        if ans == '' and default is not None:
-            return default
-
-        if ans in ['yes', 'y']:
-            return True
-        elif ans in ['no', 'n']:
-            return False
-        else:
-            print('Answer "yes" or "no".')
-
-
-__all__ = ['spawn_shell', 'ask_yes_no']
+__all__ = ['spawn_shell']
