@@ -22,12 +22,13 @@ class LoadedFrame:
         new.file = d['file']
         return new
 
-    def interact(self, globals_ref=None, locals_ref=None):
+    def interact(self, globals_ref=None, no_ipython=False):
         """
         Interact with the frame
 
         :param globals_ref: A reference to a dict that will store the globals.
         :param locals_ref: A reference to a dict that will store the locals.
+        :param no_ipython: Disabled IPython support.
         :return: Nothing
         """
         if globals_ref:
@@ -36,15 +37,11 @@ class LoadedFrame:
             globals_ = {}
 
         globals_.update(self.f_globals)
+        globals_.update(self.f_locals)
         globals_['_lframe'] = self
 
-        if locals_ref:
-            locals_ = locals_ref
-        else:
-            locals_ = {}
-        locals_.update(self.f_locals.copy())
         print('LoadedFrame object is available through the `_lframe` global variable\n')
-        spawn_shell(locals_, globals_, self.interactive_prompt_prefix)
+        spawn_shell(globals_, self.interactive_prompt_prefix, no_ipython)
 
     @property
     def interactive_prompt_prefix(self):

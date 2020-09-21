@@ -11,9 +11,10 @@ class ArgumentsNamespace:
     load_file: typing.Optional[str]
     no_sources: bool
     assume_yes: bool
+    no_ipython: bool
 
 
-def _show_frames(d, globals_ref, locals_ref, no_sources=False):
+def _show_frames(d, globals_ref, no_sources=False):
     """Implementation of frames() function in REPL"""
     files = {}
     print('Available frames')
@@ -56,12 +57,10 @@ def _update_sys_prompt(frame):
     sys.ps2 = frame.interactive_prompt_prefix + ' ... '
 
 
-def _update_frame(d, globals_ref, locals_ref, count_frames):
+def _update_frame(d, globals_ref, count_frames):
     """Implementation of up() and down() functions in REPL"""
     if '_lframe' in globals_ref:
         current_frame = globals_ref['_lframe'].frame_number  # _lframe if exists, will always be a LoadedFrame
-    elif '_lframe' in locals_ref:
-        current_frame = locals_ref['_lframe'].frame_number  # _lframe if exists, will always be a LoadedFrame
     else:
         raise RuntimeError('Unable to get current frame!!!')
     new_frame = current_frame + count_frames
@@ -73,7 +72,7 @@ def _update_frame(d, globals_ref, locals_ref, count_frames):
         globals_ref['_lframe'] = frame
 
         globals_ref.update(frame.f_globals)
-        locals_ref.update(frame.f_locals)
+        globals_ref.update(frame.f_locals)
 
     if 'frames' in globals_ref:
         globals_ref['frames']()
@@ -84,14 +83,12 @@ def _update_frame(d, globals_ref, locals_ref, count_frames):
         _update_sys_prompt(frame)
 
 
-def _show_sources(d, globals_ref, locals_ref, no_sources, count_lines):
+def _show_sources(d, globals_ref, no_sources, count_lines):
     """Implementation of sources() function in REPL"""
     if no_sources:
         print('Sources are disabled.')
         return
     frame = globals_ref.get('_lframe')
-    if not frame:
-        frame = locals_ref.get('_lframe')
     if not frame:
         print('Unable to get frame')
         return
@@ -153,6 +150,8 @@ def _main():
                    help='Disables reading the sources from disk and showing them, useful if they have changed.')
     p.add_argument('-y', dest='assume_yes', action='store_true',
                    help='Assume yes to all questions')
+    p.add_argument('--no-ipython', dest='no_ipython', action='store_true',
+                   help='Disables IPython support.')
     args = p.parse_args(namespace=ArgumentsNamespace())
     if args.load_file:
         if not args.assume_yes and not ask_yes_no('Loading dump files can allow them to execute code. '
@@ -164,16 +163,15 @@ def _main():
         sys.ps1 = '>>>'
         sys.ps2 = '...'
 
-        locals_ref = {}
         globals_ref: typing.Dict[str, typing.Union[types.LambdaType, typing.List[LoadedFrame], LoadedFrame]] = {
-            'frames': lambda: _show_frames(d, globals_ref, locals_ref, no_sources=args.no_sources),
-            'd': d,
-            'up': lambda: _update_frame(d, globals_ref, locals_ref, -1),
-            'down': lambda: _update_frame(d, globals_ref, locals_ref, 1),
-            'sources': lambda c=15: _show_sources(d, globals_ref, locals_ref, args.no_sources, c)
+            'frames': lambda: _show_frames(d, globals_ref, no_sources=args.no_sources),
+            'dump': d,
+            'up': lambda: _update_frame(d, globals_ref, -1),
+            'down': lambda: _update_frame(d, globals_ref, 1),
+            'sources': lambda c=15: _show_sources(d, globals_ref, args.no_sources, c)
         }
         globals_ref['frames']()
-        d[0].interact(globals_ref, locals_ref)
+        d[0].interact(globals_ref, no_ipython=args.no_ipython)
 
 
 if __name__ == '__main__':
