@@ -88,9 +88,9 @@ def _update_frame(d, globals_ref, count_frames):
         _update_sys_prompt(frame)
 
 
-def _show_sources(d, globals_ref, no_sources, count_lines):
+def _show_sources(d, globals_ref, args_ref: ArgumentsNamespace, count_lines):
     """Implementation of sources() function in REPL"""
-    if no_sources:
+    if args_ref.no_sources:
         print('Sources are disabled.')
         return
     frame = globals_ref.get('_lframe')
@@ -100,20 +100,58 @@ def _show_sources(d, globals_ref, no_sources, count_lines):
     start_display = frame.f_line - count_lines
     stop_display = frame.f_line + count_lines
     other_frame_lines = {fr.f_line: num for num, fr in enumerate(d) if fr.file == frame.file}
-    max_frame_number_length = max(other_frame_lines.keys(), key=lambda o: len(str(o)))
-    align_size = min(max_frame_number_length + 1, 3)
+
+    line_number_bar_color = '\033[48;5;236m'
+    current_indicator_color = '\033[92m'
+    other_indicator_color = '\033[32m'
+    sgr_reset = '\033[0;97m'
+    line_fill = '\033[0K'
+
+    current_line_color = '\033[48;5;234m'
+    other_lines_color = '\033[40m'
     try:
         with open(frame.file) as f:
-            for num, line in enumerate(f):
-                if stop_display > num > start_display:
-                    if num == frame.f_line - 1:
-                        print(f'{"==>": >{align_size}}', line.rstrip('\r\n'))
-                    elif num + 1 in other_frame_lines:
-                        print(f'{other_frame_lines[num + 1]: >{align_size-1}}>', line.rstrip('\r\n'))
-                    else:
-                        print(' ' * align_size, line.rstrip('\r\n'))
+            lines = f.readlines()
     except FileNotFoundError:
         print(f'{frame.file}: File not found')
+    max_frame_number_length = max([len(str(i)) for i in other_frame_lines.keys()])
+    max_line_number_length = len(str(len(lines)))
+    align_size = max(max_frame_number_length + 1, max_line_number_length, 3)
+    for num, line in enumerate(lines):
+        if stop_display > num > start_display:
+            if num == frame.f_line - 1:
+                print(
+                    line_number_bar_color, current_indicator_color,
+                    f'{"==>": >{align_size}} ',
+                    sgr_reset,
+                    current_line_color,
+                    line.rstrip('\r\n'),
+                    sgr_reset,
+                    line_fill,
+                    sep=''
+                )
+            elif num + 1 in other_frame_lines:
+                print(
+                    line_number_bar_color, other_indicator_color,
+                    f'{other_frame_lines[num + 1]: >{align_size - 1}}> ',
+                    sgr_reset,
+                    other_lines_color,
+                    line.rstrip('\r\n'),
+                    sgr_reset,
+                    line_fill,
+                    sep=''
+                )
+            else:
+                print(
+                    line_number_bar_color,
+                    f'{num + 1: >{align_size}} ',
+                    sgr_reset,
+                    other_lines_color,
+                    line.rstrip('\r\n'),
+                    sgr_reset,
+                    line_fill,
+                    sep=''
+                )
 
 
 def ask_yes_no(prompt, default=True) -> bool:
@@ -177,7 +215,7 @@ def _main():
             'dump': d,
             'up': lambda count=1: _update_frame(d, globals_ref, -count),
             'down': lambda count=1: _update_frame(d, globals_ref, count),
-            'sources': lambda c=15: _show_sources(d, globals_ref, args.no_sources, c)
+            'sources': lambda c=15: _show_sources(d, globals_ref, args, c)
         }
         globals_ref: typing.Dict[str, typing.Union[types.LambdaType, typing.List[LoadedFrame], LoadedFrame]] = {}
         globals_ref.update(global_functions)
