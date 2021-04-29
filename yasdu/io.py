@@ -1,5 +1,3 @@
-from .frame import LoadedFrame
-
 import json
 import os
 import traceback
@@ -7,7 +5,9 @@ import types
 import typing
 
 import dill as pickle
-from dill import PicklingError
+from pickle import PicklingError
+
+from .frame import LoadedFrame
 
 
 class FakeObject:
@@ -29,7 +29,7 @@ def _prepare_variables(variables, ref_table):
         o[k] = id(v)
 
         try:
-            ref_table[id(v)] = pickle.dumps(v).hex()
+            ref_table[id(v)] = pickle.dumps(v, protocol=pickle.HIGHEST_PROTOCOL).hex()
         except (TypeError, AttributeError, PicklingError):
             ref_table[id(v)] = '[pickle failed] ' + repr(v)
     return o

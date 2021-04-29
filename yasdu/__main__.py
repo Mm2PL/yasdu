@@ -43,7 +43,7 @@ def _show_frames(d, globals_ref, no_sources=False):
 
         suffix = ''
         if frame.frame_number == (globals_ref.get('_lframe').frame_number if '_lframe' in globals_ref else 0):
-            suffix = ' <--'
+            suffix = ' <=='
 
         print(f'  {num}. {frame.file}:{frame.f_line} {line}{suffix}')
 
@@ -73,6 +73,11 @@ def _update_frame(d, globals_ref, count_frames):
 
         globals_ref.update(frame.f_globals)
         globals_ref.update(frame.f_locals)
+        globals_ref.update(globals_ref['_global_functions'])
+
+    if 'sources' in globals_ref:
+        globals_ref['sources']()
+        print('\n')
 
     if 'frames' in globals_ref:
         globals_ref['frames']()
@@ -94,14 +99,19 @@ def _show_sources(d, globals_ref, no_sources, count_lines):
         return
     start_display = frame.f_line - count_lines
     stop_display = frame.f_line + count_lines
+    other_frame_lines = {fr.f_line: num for num, fr in enumerate(d) if fr.file == frame.file}
+    max_frame_number_length = max(other_frame_lines.keys(), key=lambda o: len(str(o)))
+    align_size = min(max_frame_number_length + 1, 3)
     try:
         with open(frame.file) as f:
             for num, line in enumerate(f):
                 if stop_display > num > start_display:
                     if num == frame.f_line - 1:
-                        print('->', line.rstrip('\r\n'))
+                        print(f'{"==>": >{align_size}}', line.rstrip('\r\n'))
+                    elif num + 1 in other_frame_lines:
+                        print(f'{other_frame_lines[num + 1]: >{align_size-1}}>', line.rstrip('\r\n'))
                     else:
-                        print('  ', line.rstrip('\r\n'))
+                        print(' ' * align_size, line.rstrip('\r\n'))
     except FileNotFoundError:
         print(f'{frame.file}: File not found')
 
@@ -162,14 +172,16 @@ def _main():
 
         sys.ps1 = '>>>'
         sys.ps2 = '...'
-
-        globals_ref: typing.Dict[str, typing.Union[types.LambdaType, typing.List[LoadedFrame], LoadedFrame]] = {
+        global_functions = {
             'frames': lambda: _show_frames(d, globals_ref, no_sources=args.no_sources),
             'dump': d,
-            'up': lambda: _update_frame(d, globals_ref, -1),
-            'down': lambda: _update_frame(d, globals_ref, 1),
+            'up': lambda count=1: _update_frame(d, globals_ref, -count),
+            'down': lambda count=1: _update_frame(d, globals_ref, count),
             'sources': lambda c=15: _show_sources(d, globals_ref, args.no_sources, c)
         }
+        globals_ref: typing.Dict[str, typing.Union[types.LambdaType, typing.List[LoadedFrame], LoadedFrame]] = {}
+        globals_ref.update(global_functions)
+        globals_ref['_global_functions'] = global_functions
         globals_ref['frames']()
         d[0].interact(globals_ref, no_ipython=args.no_ipython)
 
